@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethereum Transaction Visualizer</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>EthFlow</h1>
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Enter Address or Tx Hash (0x...)" data-testid="input-search">
+                <button id="search-button" data-testid="button-search">Visualize</button>
+            </div>
+        </header>
+        <main>
+            <div id="visualizer-container">
+                <div id="placeholder-message">Enter an Ethereum address to begin visualization</div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/app.js"></script>
+</body>
+</html>
