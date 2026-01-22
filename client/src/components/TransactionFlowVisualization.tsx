@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -8,10 +8,15 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   MarkerType,
+  Panel,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import type { EthereumTransaction } from "@shared/schema";
 import { formatEther } from "ethers";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface TransactionFlowVisualizationProps {
   transactions: EthereumTransaction[];
@@ -24,6 +29,33 @@ export function TransactionFlowVisualization({
   centerAddress,
   onNodeClick,
 }: TransactionFlowVisualizationProps) {
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+
+  const downloadPdf = async () => {
+    if (!reactFlowWrapper.current) return;
+
+    try {
+      const canvas = await html2canvas(reactFlowWrapper.current, {
+        backgroundColor: null,
+        logging: false,
+        useCORS: true,
+        scale: 2,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`eth-flow-${centerAddress.slice(0, 8)}.pdf`);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+    }
+  };
+
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -101,22 +133,20 @@ export function TransactionFlowVisualization({
       }
 
       // Add edge
+      const edgeColor = isOutgoing ? "#ef4444" : "#22c55e"; // Red for sent, Green for received
+
       edges.push({
         id: tx.hash,
         source: isOutgoing ? centerAddress : otherAddress,
         target: isOutgoing ? otherAddress : centerAddress,
         animated: true,
         style: {
-          stroke: isOutgoing 
-            ? "hsl(var(--destructive))" 
-            : "hsl(var(--chart-2))",
+          stroke: edgeColor,
           strokeWidth: 2,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isOutgoing 
-            ? "hsl(var(--destructive))" 
-            : "hsl(var(--chart-2))",
+          color: edgeColor,
           width: 20,
           height: 20,
         },
@@ -140,7 +170,11 @@ export function TransactionFlowVisualization({
   );
 
   return (
-    <div className="h-full w-full rounded-lg border bg-background" data-testid="visualization-flow">
+    <div 
+      ref={reactFlowWrapper}
+      className="h-full w-full rounded-lg border bg-background relative overflow-hidden" 
+      data-testid="visualization-flow"
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -160,6 +194,18 @@ export function TransactionFlowVisualization({
           }}
           className="bg-card border border-border"
         />
+        <Panel position="top-right">
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={downloadPdf}
+            className="flex items-center gap-2 shadow-md"
+            data-testid="button-download-pdf"
+          >
+            <Download className="h-4 w-4" />
+            Download PDF
+          </Button>
+        </Panel>
       </ReactFlow>
     </div>
   );
