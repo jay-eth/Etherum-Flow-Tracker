@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETH Flow Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen flex flex-col">
+    <header class="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">ETH Flow Tracker</h1>
+                <p class="text-sm text-slate-500">Visualize Ethereum transaction flows</p>
+            </div>
+            <div class="flex-1 max-w-2xl">
+                <div class="relative flex gap-2">
+                    <input type="text" id="searchInput" 
+                        class="w-full px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        placeholder="Enter Address or Tx Hash (0x...)">
+                    <button id="searchBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        Search
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto w-full p-4 grid lg:grid-cols-[1fr_400px] gap-6 overflow-hidden">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col h-[600px] lg:h-auto">
+            <div id="graph-container" class="flex-1 cursor-grab active:cursor-grabbing"></div>
+            <div class="absolute bottom-4 left-4 flex gap-2">
+                <button id="zoomIn" class="p-2 bg-white border border-slate-200 rounded shadow-sm hover:bg-slate-50">+</button>
+                <button id="zoomOut" class="p-2 bg-white border border-slate-200 rounded shadow-sm hover:bg-slate-50">-</button>
+                <button id="resetZoom" class="p-2 bg-white border border-slate-200 rounded shadow-sm hover:bg-slate-50">Reset</button>
+            </div>
+        </div>
+
+        <aside id="details-panel" class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-y-auto hidden">
+            <h2 class="text-lg font-bold mb-4">Transaction Details</h2>
+            <div id="details-content" class="space-y-4 text-sm">
+                <!-- Content injected via JS -->
+            </div>
+        </aside>
+
+        <div id="empty-state" class="lg:col-span-2 flex flex-col items-center justify-center py-20 text-slate-500">
+            <svg class="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <p class="text-lg font-medium">Enter an address to start tracking</p>
+        </div>
+    </main>
+
+    <footer class="py-6 text-center text-sm text-slate-400 border-t mt-auto">
+        Powered by Etherscan API
+    </footer>
+
+    <div id="loader" class="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[100] hidden">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
