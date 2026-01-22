@@ -53,35 +53,16 @@ export function TransactionFlowVisualization({
     addressMap.set(centerAddress, { x: 400, y: 300, count: 0 });
 
     // Process transactions and create nodes/edges
-    transactions.slice(0, 30).forEach((tx, index) => {
+    transactions.slice(0, 20).forEach((tx, index) => {
       const isOutgoing = tx.from.toLowerCase() === centerAddress.toLowerCase();
       const otherAddress = isOutgoing ? tx.to : tx.from;
-      
-      // Flow pattern: 
-      // Incoming (In) -> Center (Wallet) -> Outgoing (Out)
-      // Left side for Incoming, Right side for Outgoing
-      
-      const incomingTxs = transactions.filter(t => t.to.toLowerCase() === centerAddress.toLowerCase());
-      const outgoingTxs = transactions.filter(t => t.from.toLowerCase() === centerAddress.toLowerCase());
-      
-      const inIndex = incomingTxs.findIndex(t => t.hash === tx.hash);
-      const outIndex = outgoingTxs.findIndex(t => t.hash === tx.hash);
+      const angle = (index / Math.min(transactions.length, 20)) * 2 * Math.PI;
+      const radius = 250;
 
       // Add node for the other address if not exists
       if (!addressMap.has(otherAddress)) {
-        let x, y;
-        
-        if (isOutgoing) {
-          // Right side
-          x = 700;
-          const totalOut = outgoingTxs.length || 1;
-          y = 100 + (outIndex * 100); 
-        } else {
-          // Left side
-          x = 100;
-          const totalIn = incomingTxs.length || 1;
-          y = 100 + (inIndex * 100);
-        }
+        const x = 400 + radius * Math.cos(angle);
+        const y = 300 + radius * Math.sin(angle);
 
         const value = formatEther(tx.value);
         const formattedValue = parseFloat(value) > 0.0001 
