@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import axios from "axios";
 
-const ETHERSCAN_API_URL = "https://api.etherscan.io/api";
+const ETHERSCAN_API_URL = "https://api.etherscan.io/v2/api";
 const API_KEY = process.env.ETHERSCAN_API_KEY || "";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -11,6 +11,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const response = await axios.get(ETHERSCAN_API_URL, {
         params: {
+          chainid: 1, // Ethereum mainnet
           ...req.query,
           apikey: API_KEY,
         },
