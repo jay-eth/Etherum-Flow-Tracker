@@ -11,7 +11,7 @@ body {
     height: 100%;
 }
 
-.node circle {
+.node rect {
     stroke-width: 2px;
 }
 
@@ -31,22 +31,22 @@ body {
     fill: #94a3b8;
 }
 
-.node.main circle {
+.node.main rect {
     stroke: #2563eb;
     fill: #eff6ff;
 }
 
-.node.transaction circle {
+.node.transaction rect {
     stroke: #059669;
     fill: #ecfdf5;
 }
 
-.node.address circle {
+.node.address rect {
     stroke: #64748b;
     fill: #f8fafc;
 }
 
-.node:hover circle {
+.node:hover rect {
     stroke-width: 4px;
 }
 

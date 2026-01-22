@@ -1,5 +1,5 @@
 // CONFIG - EXPOSING API KEY AS REQUESTED (RESEARCH MODE)
-const API_KEY = 'YP7AFGGP9VG2C1B447JR1BE75GMH5DPNFZ'; // Using the key found in search logs as placeholder
+const API_KEY = 'X6YJNFA98WA325J8IBP4PUSUHYHFWIGUJW'; // New V2 API key
 const BASE_URL = 'https://api.etherscan.io/v2/api';
 const CHAIN_ID = 1;
 
@@ -61,10 +61,18 @@ async function fetchData(query) {
         if (query.length === 66) { // Tx Hash
             const response = await fetch(`${BASE_URL}?chainid=${CHAIN_ID}&module=proxy&action=eth_getTransactionByHash&txhash=${query}&apikey=${API_KEY}`);
             const data = await response.json();
+            if (data.status === "0") {
+                alert(data.result);
+                return;
+            }
             if (data.result) transactions = [data.result];
         } else { // Address
-            const response = await fetch(`${BASE_URL}?chainid=${CHAIN_ID}&module=account&action=txlist&address=${query}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${API_KEY}`);
+            const response = await fetch(`${BASE_URL}?chainid=${CHAIN_ID}&module=account&action=txlist&address=${query}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${API_KEY}`);
             const data = await response.json();
+            if (data.status === "0") {
+                alert(data.result);
+                return;
+            }
             if (data.status === "1") transactions = data.result;
         }
 
@@ -76,7 +84,7 @@ async function fetchData(query) {
         }
     } catch (err) {
         console.error(err);
-        alert('Error fetching data');
+        alert(`Error fetching data: ${err.message}`);
     } finally {
         loader.classList.add('hidden');
     }
@@ -90,26 +98,49 @@ function renderGraph(transactions, centerQuery) {
     const nodesMap = new Map();
     const links = [];
 
+    // Sort and take last 10 transactions
+    const relevantTx = transactions
+        .sort((a, b) => parseInt(b.blockNumber) - parseInt(a.blockNumber))
+        .slice(0, 10);
+
     // Process nodes and links
-    transactions.forEach(tx => {
+    relevantTx.forEach(tx => {
         if (!nodesMap.has(tx.from)) nodesMap.set(tx.from, { id: tx.from, type: 'address', isMain: tx.from.toLowerCase() === centerQuery.toLowerCase() });
         if (tx.to && !nodesMap.has(tx.to)) nodesMap.set(tx.to, { id: tx.to, type: 'address', isMain: tx.to.toLowerCase() === centerQuery.toLowerCase() });
-        
+
         const txId = tx.hash;
         nodesMap.set(txId, { id: txId, type: 'transaction', data: tx });
-        
-        links.push({ source: tx.from, target: txId });
+
+        // Reverse arrows to point to source
+        links.push({ source: txId, target: tx.from });
         if (tx.to) links.push({ source: txId, target: tx.to });
     });
 
     const nodes = Array.from(nodesMap.values());
 
+    // Initial positions
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = 200;
+    const angleStep = (2 * Math.PI) / (nodes.length - 1);
+
+    nodes.forEach((node, i) => {
+        if (node.isMain) {
+            node.x = centerX;
+            node.y = centerY;
+        } else {
+            const angle = (i - 1) * angleStep;
+            node.x = centerX + radius * Math.cos(angle);
+            node.y = centerY + radius * Math.sin(angle);
+        }
+    });
+
     simulation = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-        .force("charge", d3.forceManyBody().strength(-300))
+        .force("charge", d3.forceManyBody().strength(-100)) // Reduced strength to less wiggly
         .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("x", d3.forceX())
-        .force("y", d3.forceY());
+        .alphaDecay(0.05) // Faster decay to stabilize
+        .alphaMin(0.01); // Stop when stable
 
     const link = g.append("g")
         .selectAll("path")
@@ -125,23 +156,21 @@ function renderGraph(transactions, centerQuery) {
         .attr("class", d => `node ${d.type} ${d.isMain ? 'main' : ''}`)
         .call(drag(simulation));
 
-    node.append("circle")
-        .attr("r", d => d.type === 'transaction' ? 8 : 12)
+    node.append("rect")
+        .attr("width", d => d.type === 'transaction' ? 60 : 80)
+        .attr("height", 30)
+        .attr("x", d => d.type === 'transaction' ? -30 : -40)
+        .attr("y", -15)
+        .attr("rx", 5)
         .on("click", (event, d) => showDetails(d));
 
     node.append("text")
-        .attr("dy", 25)
+        .attr("dy", 5)
         .attr("text-anchor", "middle")
         .text(d => d.id.slice(0, 6) + '...');
 
     simulation.on("tick", () => {
-        link.attr("d", d => {
-            const dx = d.target.x - d.source.x,
-                dy = d.target.y - d.source.y,
-                dr = Math.sqrt(dx * dx + dy * dy);
-            return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
-        });
-
+        link.attr("d", d => `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`);
         node.attr("transform", d => `translate(${d.x},${d.y})`);
     });
 }
@@ -167,45 +196,56 @@ function drag(simulation) {
         .on("end", dragended);
 }
 
+function downloadPDF() {
+    html2canvas(graphContainer, { useCORS: true }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new window.jspdf.jsPDF();
+        const imgWidth = 190; // A4 width minus margins
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+        pdf.save('transaction-flow.pdf');
+    }).catch(err => console.error('PDF generation error:', err));
+}
+
 function showDetails(node) {
     detailsPanel.classList.remove('hidden');
     if (node.type === 'transaction') {
         const tx = node.data;
         const val = (parseInt(tx.value) / 1e18).toFixed(6);
         detailsContent.innerHTML = `
-            <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all font-mono text-[10px]">
-                <span class="text-slate-400 block mb-1 uppercase tracking-wider">Hash</span>
-                ${tx.hash}
+            <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all text-sm">
+                <span class="text-slate-600 block mb-2 font-semibold">Hash</span>
+                <span class="font-mono text-xs">${tx.hash}</span>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div class="p-3 bg-slate-50 rounded border border-slate-100">
-                    <span class="text-slate-400 block mb-1 uppercase tracking-wider text-[10px]">Value</span>
-                    <span class="font-bold">${val} ETH</span>
+                    <span class="text-slate-600 block mb-2 font-semibold">Value</span>
+                    <span class="font-bold text-lg">${val} ETH</span>
                 </div>
                 <div class="p-3 bg-slate-50 rounded border border-slate-100">
-                    <span class="text-slate-400 block mb-1 uppercase tracking-wider text-[10px]">Block</span>
-                    <span>${tx.blockNumber}</span>
+                    <span class="text-slate-600 block mb-2 font-semibold">Block</span>
+                    <span class="text-lg">${tx.blockNumber}</span>
                 </div>
             </div>
             <div class="space-y-2">
-                <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all font-mono text-[10px]">
-                    <span class="text-slate-400 block mb-1 uppercase tracking-wider">From</span>
-                    ${tx.from}
+                <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all text-sm">
+                    <span class="text-slate-600 block mb-2 font-semibold">From</span>
+                    <span class="font-mono text-xs">${tx.from}</span>
                 </div>
-                <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all font-mono text-[10px]">
-                    <span class="text-slate-400 block mb-1 uppercase tracking-wider">To</span>
-                    ${tx.to || 'Contract Creation'}
+                <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all text-sm">
+                    <span class="text-slate-600 block mb-2 font-semibold">To</span>
+                    <span class="font-mono text-xs">${tx.to || 'Contract Creation'}</span>
                 </div>
             </div>
-            <a href="https://etherscan.io/tx/${tx.hash}" target="_blank" class="block w-full py-2 bg-slate-900 text-white text-center rounded-lg hover:bg-slate-800 transition-colors">View on Etherscan</a>
+            <button onclick="downloadPDF()" class="block w-full py-3 bg-slate-900 text-white text-center rounded-lg hover:bg-slate-800 transition-colors font-semibold">Download as PDF</button>
         `;
     } else {
         detailsContent.innerHTML = `
-            <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all font-mono text-[10px]">
-                <span class="text-slate-400 block mb-1 uppercase tracking-wider">Address</span>
-                ${node.id}
+            <div class="p-3 bg-slate-50 rounded border border-slate-100 break-all text-sm">
+                <span class="text-slate-600 block mb-2 font-semibold">Address</span>
+                <span class="font-mono text-xs">${node.id}</span>
             </div>
-            <a href="https://etherscan.io/address/${node.id}" target="_blank" class="block w-full py-2 bg-slate-900 text-white text-center rounded-lg hover:bg-slate-800 transition-colors">View on Etherscan</a>
+            <button onclick="downloadPDF()" class="block w-full py-3 bg-slate-900 text-white text-center rounded-lg hover:bg-slate-800 transition-colors font-semibold">Download as PDF</button>
         `;
     }
 }

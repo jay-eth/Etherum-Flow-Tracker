@@ -12,6 +12,12 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import type { EthereumTransaction } from "@shared/schema";
 import { formatEther } from "ethers";
+import { TransactionNode, AddressNode } from "./TransactionNode";
+
+const nodeTypes = {
+  transactionNode: TransactionNode,
+  addressNode: AddressNode,
+};
 
 interface TransactionFlowVisualizationProps {
   transactions: EthereumTransaction[];
@@ -27,96 +33,65 @@ export function TransactionFlowVisualization({
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const addressMap = new Map<string, { x: number; y: number; count: number }>();
 
-    // Add center node (the queried address)
+    // Sort transactions by timestamp desc, take latest 10
+    const relevantTx = [...transactions]
+      .sort((a, b) => b.timeStamp - a.timeStamp)
+      .slice(0, 10);
+
+    // Calculate totals for center
+    const totalValue = relevantTx.reduce((sum, tx) => {
+      const isOutgoing = tx.from.toLowerCase() === centerAddress.toLowerCase();
+      const value = parseFloat(formatEther(tx.value));
+      return sum + (isOutgoing ? -value : value);
+    }, 0);
+    const latestTimestamp = relevantTx.length > 0 ? relevantTx[0].timeStamp : Date.now() / 1000;
+
+    // Add center address node
     nodes.push({
       id: centerAddress,
-      type: "default",
+      type: "addressNode",
       data: {
-        label: `${centerAddress.slice(0, 8)}...${centerAddress.slice(-6)}`,
+        address: centerAddress,
+        totalValue: `${totalValue.toFixed(4)} ETH`,
+        latestTimestamp,
+        isCenter: true,
       },
       position: { x: 400, y: 300 },
-      style: {
-        background: "hsl(var(--primary))",
-        color: "hsl(var(--primary-foreground))",
-        border: "2px solid hsl(var(--primary-border))",
-        borderRadius: "8px",
-        padding: "12px 16px",
-        fontSize: "13px",
-        fontFamily: "JetBrains Mono, monospace",
-        fontWeight: 600,
-        width: 200,
-      },
     });
 
-    addressMap.set(centerAddress, { x: 400, y: 300, count: 0 });
-
-    // Process transactions and create nodes/edges
-    transactions.slice(0, 20).forEach((tx, index) => {
-      const isOutgoing = tx.from.toLowerCase() === centerAddress.toLowerCase();
-      const otherAddress = isOutgoing ? tx.to : tx.from;
-      const angle = (index / Math.min(transactions.length, 20)) * 2 * Math.PI;
+    // Add transaction nodes
+    relevantTx.forEach((tx, index) => {
+      const angle = (index / relevantTx.length) * 2 * Math.PI;
       const radius = 250;
 
-      // Add node for the other address if not exists
-      if (!addressMap.has(otherAddress)) {
-        const x = 400 + radius * Math.cos(angle);
-        const y = 300 + radius * Math.sin(angle);
-
-        const value = formatEther(tx.value);
-        const formattedValue = parseFloat(value) > 0.0001 
-          ? `${parseFloat(value).toFixed(4)} ETH` 
-          : "< 0.0001 ETH";
-
-        nodes.push({
-          id: otherAddress,
-          type: "default",
-          data: {
-            label: (
-              <div className="text-center">
-                <div className="font-mono text-xs">
-                  {otherAddress.slice(0, 6)}...{otherAddress.slice(-4)}
-                </div>
-                <div className="text-[10px] text-muted-foreground mt-1">
-                  {formattedValue}
-                </div>
-              </div>
-            ),
-          },
-          position: { x, y },
-          style: {
-            background: "hsl(var(--card))",
-            color: "hsl(var(--card-foreground))",
-            border: "1px solid hsl(var(--card-border))",
-            borderRadius: "6px",
-            padding: "8px 12px",
-            fontSize: "11px",
-            fontFamily: "JetBrains Mono, monospace",
-            width: 140,
-          },
-        });
-
-        addressMap.set(otherAddress, { x, y, count: 1 });
-      }
+      nodes.push({
+        id: tx.hash,
+        type: "transactionNode",
+        data: {
+          transaction: tx,
+        },
+        position: {
+          x: 400 + radius * Math.cos(angle),
+          y: 300 + radius * Math.sin(angle),
+        },
+      });
 
       // Add edge
+      const isOutgoing = tx.from.toLowerCase() === centerAddress.toLowerCase();
       edges.push({
         id: tx.hash,
-        source: isOutgoing ? centerAddress : otherAddress,
-        target: isOutgoing ? otherAddress : centerAddress,
-        animated: true,
+        source: isOutgoing ? centerAddress : tx.hash,
+        target: isOutgoing ? tx.hash : centerAddress,
+        type: 'smoothstep',
+        animated: false,
         style: {
-          stroke: isOutgoing 
-            ? "hsl(var(--destructive))" 
-            : "hsl(var(--chart-2))",
+          stroke: isOutgoing ? "#ef4444" : "#3b82f6",
           strokeWidth: 2,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isOutgoing 
-            ? "hsl(var(--destructive))" 
-            : "hsl(var(--chart-2))",
+          color: isOutgoing ? "#ef4444" : "#3b82f6",
           width: 20,
           height: 20,
         },
@@ -130,6 +105,15 @@ export function TransactionFlowVisualization({
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      if (node.type === 'transactionNode' && node.data?.transaction && onNodeClick) {
+        onNodeClick(node.data.transaction);
+      }
+    },
+    [onNodeClick]
+  );
+
   const handleEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
       if (edge.data?.transaction && onNodeClick) {
@@ -140,25 +124,28 @@ export function TransactionFlowVisualization({
   );
 
   return (
-    <div className="h-full w-full rounded-lg border bg-background" data-testid="visualization-flow">
+    <div className="h-full w-full bg-white border border-gray-200 rounded-lg shadow-md relative" data-testid="visualization-flow">
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
         fitView
         minZoom={0.5}
         maxZoom={1.5}
+        className="bg-gray-50"
       >
-        <Background />
-        <Controls />
+        <Background color="#f3f4f6" gap={16} />
+        <Controls className="bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg" />
         <MiniMap
           nodeColor={(node) => {
-            if (node.id === centerAddress) return "hsl(var(--primary))";
-            return "hsl(var(--muted))";
+            if (node.id === centerAddress) return "#1f2937";
+            return "#6b7280";
           }}
-          className="bg-card border border-border"
+          className="bg-white border border-gray-200 shadow-lg bottom-4 left-4"
         />
       </ReactFlow>
     </div>
