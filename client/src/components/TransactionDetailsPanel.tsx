@@ -66,9 +66,8 @@ export function TransactionDetailsPanel({ transaction }: TransactionDetailsPanel
               rel="noopener noreferrer"
               className="hover-elevate active-elevate-2 rounded-md p-2"
               data-testid="link-etherscan-tx"
-              title="Verify on Etherscan"
             >
-              <ExternalLink className="h-4 w-4 text-primary" />
+              <ExternalLink className="h-4 w-4" />
             </a>
           </div>
         </div>
@@ -120,9 +119,8 @@ export function TransactionDetailsPanel({ transaction }: TransactionDetailsPanel
               rel="noopener noreferrer"
               className="hover-elevate active-elevate-2 rounded-md p-2"
               data-testid="link-etherscan-from"
-              title="View on Etherscan"
             >
-              <ExternalLink className="h-4 w-4 text-primary" />
+              <ExternalLink className="h-4 w-4" />
             </a>
           </div>
         </div>
@@ -141,9 +139,8 @@ export function TransactionDetailsPanel({ transaction }: TransactionDetailsPanel
               rel="noopener noreferrer"
               className="hover-elevate active-elevate-2 rounded-md p-2"
               data-testid="link-etherscan-to"
-              title="View on Etherscan"
             >
-              <ExternalLink className="h-4 w-4 text-primary" />
+              <ExternalLink className="h-4 w-4" />
             </a>
           </div>
         </div>

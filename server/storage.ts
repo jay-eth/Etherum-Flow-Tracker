@@ -1,27 +1,14 @@
-import { EthereumTransaction } from "@shared/schema";
-import fs from "fs/promises";
-import path from "path";
+// This app doesn't require persistent storage since all data comes from Etherscan API
+// Storage interface kept for potential future use
 
 export interface IStorage {
   // Add storage methods here if needed
 }
 
-export class FileStorage implements IStorage {
-  private dataPath: string;
-
+export class MemStorage implements IStorage {
   constructor() {
-    this.dataPath = path.resolve(process.cwd(), "data", "storage.json");
-    this.init();
-  }
-
-  private async init() {
-    try {
-      await fs.access(this.dataPath);
-    } catch {
-      await fs.mkdir(path.dirname(this.dataPath), { recursive: true });
-      await fs.writeFile(this.dataPath, JSON.stringify({}));
-    }
+    // Initialize storage if needed
   }
 }
 
-export const storage = new FileStorage();
+export const storage = new MemStorage();
